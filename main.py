@@ -93,41 +93,12 @@ class Player():
             return self.direction + direction
     
     def checkCollision(self, walls):
-        """
-        for wall in walls:
-            info = wall.info()
-            neighbors = [(self.x - 1, self.y), (self.x, self.y - 1), (self.x + 1, self.y), (self.x, self.y + 1)]
-            for neighbor in neighbors:
-                if neighbor in wallPixels:
-                    if neighbor == (self.x - 1, self.y):
-                        print("left col")
-                        self.changeDirection(self.formatDirection(90))
-                    elif neighbor == (self.x, self.y - 1):
-                        print("top col")
-                        self.changeDirection(self.formatDirection(90))
-                    elif neighbor == (self.x + 1, self.y):
-                        print("right col")
-                        self.changeDirection(self.formatDirection(90))
-                    elif neighbor == (self.x, self.y + 1):
-                        print("bottom col")
-                        self.changeDirection(self.formatDirection(90))
-        """
-
-
         neighbors = [(self.x - 1, self.y), (self.x, self.y - 1), (self.x + 1, self.y), (self.x, self.y + 1)]
         for neighbor in neighbors:
             for wall in walls:
                 info = wall.info()
                 if neighbor in info[3]:    #aka neighbor in the area/pixels of wall
-                    if neighbor == (self.x - 1, self.y):
-                        self.changeDirection(self.direction, info[2])
-                    elif neighbor == (self.x, self.y - 1):
-                        print(info[2])
-                        self.changeDirection(self.direction, info[2])
-                    elif neighbor == (self.x + 1, self.y):
-                        self.changeDirection(self.direction, info[2])
-                    elif neighbor == (self.x, self.y + 1):
-                        self.changeDirection(self.direction, info[2])
+                    self.changeDirection(self.direction, info[2])
 
 class Wall():
     def __init__(self, size, pos, direction):
