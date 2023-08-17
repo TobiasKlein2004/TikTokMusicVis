@@ -9,8 +9,9 @@ WINDOW_WIDTH = 700
 WINDOW_HEIGHT = 700
 FPS = 10
 PLAYER_SIZE = 20
-PLAYER_SPEED = 10
-PLAYER_START_DIRECTION = 45
+PLAYER_SPEED = 1             #higher means faster
+PLAYER_STEPS = 200             #lower means faster
+PLAYER_START_DIRECTION = 30
 
 # colors
 BACKGROUND_COLOR = (0,0,0)
@@ -21,6 +22,9 @@ WALL_COLOR = (0,0,255)
 pygame.display.set_caption("Musik Game")
 screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_WIDTH))
 
+
+def toPygameCoordinates(coords):
+    return (coords[0] + WINDOW_WIDTH / 2, coords[1] + WINDOW_HEIGHT / 2)
 
 class Player():
     def __init__(self, size, pos, direction, speed):
@@ -33,16 +37,31 @@ class Player():
         targetX, targetY = self.angleToCoordinats(self.direction)
         targetX = round(targetX * 700)
         targetY = round(targetY * 700)
-        pygame.draw.rect(screen, PLAYER_COLOR, pygame.Rect(self.x - (self.size / 2), self.y - (self.size / 2), self.size, self.size))
-        pygame.draw.rect(screen, (0, 255, 0), pygame.Rect(self.x, self.y, 1, 1))
-        pygame.draw.line(screen, (255, 255, 255), (self.x, self.y), (self.x + targetX, self.y + targetY))
+        print("X Target: " + str(targetX) + "  |  Y Target: " + str(targetY))
+
+        targetX_Distance = targetX - self.x
+        targetY_Distance = targetY - self.y
+        print("X Distance: " + str(targetX_Distance) + "  |  Y Distance: " + str(targetY_Distance))
+
+        self.x += targetX_Distance / PLAYER_STEPS
+        self.y += targetY_Distance / PLAYER_STEPS
+
+        pgx, pgy = toPygameCoordinates((self.x, self.y)) #PyGameX and PyGameY (convert center based coords to topleft based coords)
+
+        pygame.draw.rect(screen, PLAYER_COLOR, pygame.Rect(pgx - (self.size / 2), pgy - (self.size / 2), self.size, self.size))
+        pygame.draw.line(screen, (255, 255, 255), (pgx, pgy), (pgx + targetX, pgy + targetY))
     
     def angleToCoordinats(self, angle):
         radiants = -1*((angle - 180) * (math.pi / 180))   # make 0deg uplooking and going clockwise
         x = math.sin(radiants)
         y = math.cos(radiants)
-        #print("X: " + str(x) + " - Y: " + str(y))
         return (x, y)
+    
+    def distance(a, b):
+        if a > b:
+            return b-a
+        if b > a:
+            return b - a
 
     def updateAngle(self, angle):
         self.direction = angle
@@ -71,7 +90,7 @@ def drawWalls(walls):
     for wall in walls:
         wall.draw()
 
-player = Player(PLAYER_SIZE, (350, 350), PLAYER_START_DIRECTION, PLAYER_SPEED)
+player = Player(PLAYER_SIZE, (0, 0), PLAYER_START_DIRECTION, PLAYER_SPEED)
 
 # wall = wall((width, height), (xPos, yPos), orientation) <- 0 standing, 1 laying
 wall1 = Wall((50, 700), (0, 0), 0)
