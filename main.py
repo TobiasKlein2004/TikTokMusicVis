@@ -98,12 +98,30 @@ class Player():
                         case "top":
                             if 0 < self.direction < 90:
                                 outgoingAngle = 180 - self.direction
-                                print("IN: " + str(self.direction) + " - OUT: " + str(outgoingAngle))
                             elif 270 < self.direction < 360:
                                 outgoingAngle = 270 - (self.direction - 270)
-                                print("IN: " + str(self.direction) + " - OUT: " + str(outgoingAngle))
                             else:
                                 outgoingAngle = 180
+                            self.updateAngle(outgoingAngle)
+                        case "left":
+                            if self.direction < 270:
+                                outgoingAngle = 180 - (self.direction - 180)
+                                print("IN: " + str(self.direction) + " - OUT: " + str(outgoingAngle))
+                            elif self.direction > 270:
+                                outgoingAngle = 360 - self.direction
+                                print("IN: " + str(self.direction) + " - OUT: " + str(outgoingAngle))
+                            else:
+                                outgoingAngle = 90
+                            self.updateAngle(outgoingAngle)
+                        case "right":
+                            if self.direction > 90:
+                                outgoingAngle = 180 + (180 - self.direction)
+                                print("IN: " + str(self.direction) + " - OUT: " + str(outgoingAngle))
+                            elif self.direction < 90:
+                                outgoingAngle = 360 - self.direction
+                                print("IN: " + str(self.direction) + " - OUT: " + str(outgoingAngle))
+                            else:
+                                outgoingAngle = 270
                             self.updateAngle(outgoingAngle)
 
 class Wall():
