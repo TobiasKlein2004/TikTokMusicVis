@@ -47,8 +47,8 @@ class Player():
         targetY_Distance = targetY - self.y
         #print("X Distance: " + str(targetX_Distance) + "  |  Y Distance: " + str(targetY_Distance))
 
-        self.x += targetX_Distance / PLAYER_STEPS * PLAYER_SPEED
-        self.y += targetY_Distance / PLAYER_STEPS * PLAYER_SPEED
+        self.x += (targetX_Distance / PLAYER_STEPS * PLAYER_SPEED)
+        self.y += (targetY_Distance / PLAYER_STEPS * PLAYER_SPEED)
 
         pgx, pgy = toPygameCoordinates((self.x, self.y)) #PyGameX and PyGameY (convert center based coords to topleft based coords)
 
@@ -59,8 +59,10 @@ class Player():
             for j in range(round(pgx) - round(self.size / 2), round(pgx) + round(self.size / 2)):
                 playerPixels.append((j,i))
 
+        # Actual drawing
         self.drawPlayerBox(playerPixels)
-        #pygame.draw.rect(screen, PLAYER_COLOR, pygame.Rect(pgx - (self.size / 2), pgy - (self.size / 2), self.size, self.size))
+        for wall in walls:
+            wall.draw()
         pygame.draw.line(screen, (255, 255, 255), (pgx, pgy), (pgx + targetX, pgy + targetY))
     
     def angleToCoordinats(self, angle):
@@ -145,11 +147,11 @@ class Wall():
 
     def info(self):
         return [(self.x, self.y), (self.sizeX, self.sizeY), self.direction, self.getPixels()]
+    
 
 
-def drawWalls(walls):
-    for wall in walls:
-        wall.draw()
+
+
 
 player = Player(PLAYER_SIZE, (250, -250), PLAYER_START_DIRECTION, PLAYER_SPEED)
 
@@ -171,7 +173,6 @@ while running == True:
     # redraw
     screen.fill(BACKGROUND_COLOR)
     player.draw(Walls)
-    drawWalls(Walls)
 
     # game Logic
     #if counter % FPS == 0:
