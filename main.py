@@ -10,11 +10,12 @@ WINDOW_WIDTH = 700
 WINDOW_HEIGHT = 700
 FPS = 10
 PLAYER_SIZE = 20
-PLAYER_SPEED = 2            #higher means faster
+PLAYER_SPEED = 5            #higher means faster (PLAYER_STEPS % PLAYER_SPEED shoud be 0)
 PLAYER_STEPS = 200             #lower means faster
-PLAYER_START_DIRECTION = 90
+PLAYER_START_DIRECTION = 30
 PLAYER_START_POSITION = (0, 0)
-PATH_PROJECTION_LENGHT = 250
+PATH_PROJECTION_LENGHT = 700
+ANGLE_NOISE = 10
 
 # colors
 BACKGROUND_COLOR = (0,0,0)
@@ -42,6 +43,8 @@ def debugDraw(target, pos):
 # Debug End - - - - - - - - - - - - - - - -
 
 
+
+
 def toPygameCoordinates(coords):
     return (coords[0] + WINDOW_WIDTH / 2, coords[1] + WINDOW_HEIGHT / 2)
 
@@ -52,23 +55,22 @@ class Player():
         self.direction = direction
         self.speed = speed
         self.targetX, self.targetY = round(self.angleToCoordinats(self.direction)[0] * PATH_PROJECTION_LENGHT), round(self.angleToCoordinats(self.direction)[1] * PATH_PROJECTION_LENGHT)
+        self.dX, self.dY = self.calcDistance((self.x, self.y), (self.targetX, self.targetY))
+        self.StepSize = (self.dX / PLAYER_STEPS, self.dY / PLAYER_STEPS)
     
+    def calcDistance(self, start, target):
+        return (target[0] - start[0], target[1] - start[1])
+
     def drawPlayerBox(self, pixels):
         for pixel in pixels:
             pygame.draw.rect(screen, (random.choice(range(0, 255)), random.choice(range(0, 255)), random.choice(range(0, 255))), pygame.Rect(pixel[0], pixel[1], 1, 1))
     
     def draw(self, walls):
-        #targetX, targetY = self.angleToCoordinats(self.direction)
-        #self.targetX = round(self.targetX * 700)
-        #self.targetY = round(self.targetY * 700)
-        print("X Target: " + str(self.targetX) + "  |  Y Target: " + str(self.targetY))
-
-        targetX_Distance = self.targetX - self.x
-        targetY_Distance = self.targetY - self.y
-        print("X Distance: " + str(targetX_Distance) + "  |  Y Distance: " + str(targetY_Distance))
-
-        self.x += (targetX_Distance / PLAYER_STEPS * PLAYER_SPEED)
-        self.y += (targetY_Distance / PLAYER_STEPS * PLAYER_SPEED)
+        #print("X Target: " + str(self.targetX) + "  |  Y Target: " + str(self.targetY))
+        #print("X Distance: " + str(self.dX) + "  |  Y Distance: " + str(self.dY))
+        if (round(self.x), round(self.y)) != (self.targetX, self.targetY):
+            self.x += self.StepSize[0] * PLAYER_SPEED
+            self.y += self.StepSize[1] * PLAYER_SPEED
 
         pgx, pgy = toPygameCoordinates((self.x, self.y)) #PyGameX and PyGameY (convert center based coords to topleft based coords)
 
@@ -94,7 +96,13 @@ class Player():
         return (x, y)
 
     def updateAngle(self, angle):
-        self.direction = angle
+        if ANGLE_NOISE != 0:
+            self.direction = angle + random.choice(range(-ANGLE_NOISE, ANGLE_NOISE))
+        else:
+            self.direction = angle
+        self.targetX, self.targetY = round(self.angleToCoordinats(self.direction)[0] * PATH_PROJECTION_LENGHT), round(self.angleToCoordinats(self.direction)[1] * PATH_PROJECTION_LENGHT)
+        self.dX, self.dY = self.calcDistance((self.x, self.y), (self.targetX, self.targetY))
+        self.StepSize = (self.dX / PLAYER_STEPS, self.dY / PLAYER_STEPS)
     
     # Physics: Collision
     def collisionCheck(self, walls, x, y):
@@ -118,6 +126,7 @@ class Player():
                                 outgoingAngle = 360 - (self.direction - 180)
                             else:
                                 outgoingAngle = 0
+                            print("IN: " + str(self.direction) + " - OUT: " + str(outgoingAngle))
                             self.updateAngle(outgoingAngle)
                         case "top":
                             if 0 < self.direction < 90:
@@ -126,26 +135,25 @@ class Player():
                                 outgoingAngle = 270 - (self.direction - 270)
                             else:
                                 outgoingAngle = 180
+                            print("IN: " + str(self.direction) + " - OUT: " + str(outgoingAngle))
                             self.updateAngle(outgoingAngle)
                         case "left":
                             if self.direction < 270:
                                 outgoingAngle = 180 - (self.direction - 180)
-                                print("IN: " + str(self.direction) + " - OUT: " + str(outgoingAngle))
                             elif self.direction > 270:
                                 outgoingAngle = 360 - self.direction
-                                print("IN: " + str(self.direction) + " - OUT: " + str(outgoingAngle))
                             else:
                                 outgoingAngle = 90
+                            print("IN: " + str(self.direction) + " - OUT: " + str(outgoingAngle))
                             self.updateAngle(outgoingAngle)
                         case "right":
                             if self.direction > 90:
                                 outgoingAngle = 180 + (180 - self.direction)
-                                print("IN: " + str(self.direction) + " - OUT: " + str(outgoingAngle))
                             elif self.direction < 90:
                                 outgoingAngle = 360 - self.direction
-                                print("IN: " + str(self.direction) + " - OUT: " + str(outgoingAngle))
                             else:
                                 outgoingAngle = 270
+                            print("IN: " + str(self.direction) + " - OUT: " + str(outgoingAngle))
                             self.updateAngle(outgoingAngle)
 
 class Wall():
