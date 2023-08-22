@@ -1,8 +1,11 @@
 import pygame
 import random
 import math
-
-pygame.init()
+import librosa
+import time
+#import librosa.display
+#import os
+#import matplotlib.pyplot as plt
 
 # Constant Variables
 DEBUG = True
@@ -15,13 +18,41 @@ PLAYER_STEPS = 200             #lower means faster
 PLAYER_START_DIRECTION = 30
 PLAYER_START_POSITION = (0, 0)
 PATH_PROJECTION_LENGHT = 700
-ANGLE_NOISE = 10
+ANGLE_NOISE = 5
 
 # colors
 BACKGROUND_COLOR = (0,0,0)
 PLAYER_COLOR = (255,0,0)
 WALL_COLOR = (0,0,255)
 
+# Audio Vars
+AUDIO_FILE_PATH = input("- - - Audio path: audio/")
+if AUDIO_FILE_PATH == "":
+    AUDIO_FILE_PATH = "1.wav"
+print("- - - Loading ...")
+ONSETS = []
+
+# Audio Processing
+waveform, samplerate = librosa.load('audio/' + AUDIO_FILE_PATH)
+
+onset_frames = librosa.onset.onset_detect(y=waveform, sr=samplerate, wait=1, pre_avg=1, post_avg=1, pre_max=1, post_max=1)
+onset_times = librosa.frames_to_time(onset_frames)
+ONSETS = onset_times
+
+def playOnsets(onsets):
+    last = 0
+    for onset in onsets:
+        time.sleep(float(onset - last))
+        last = float(onset)
+        print("bam")
+
+playOnsets(ONSETS)
+
+
+
+
+
+pygame.init()
 
 pygame.display.set_caption("Musik Game")
 screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_WIDTH))
@@ -192,7 +223,7 @@ wall3 = Wall((700, 50), (0, 0), 1)
 wall4 = Wall((700, 50), (0, 650), 1)
 Walls = [wall1, wall2, wall3, wall4]
 
-running = True
+running = False
 
 counter = 0
 while running == True:
