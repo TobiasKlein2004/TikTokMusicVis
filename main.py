@@ -38,6 +38,7 @@ waveform, samplerate = librosa.load('audio/' + AUDIO_FILE_PATH)
 onset_frames = librosa.onset.onset_detect(y=waveform, sr=samplerate, wait=1, pre_avg=1, post_avg=1, pre_max=1, post_max=1)
 onset_times = librosa.frames_to_time(onset_frames)
 ONSETS = onset_times
+#ssfs
 
 def playOnsets(onsets):
     last = 0
