@@ -3,15 +3,16 @@ import random
 import math
 import librosa
 import time
+import playsound
+import os
 #import librosa.display
-#import os
 #import matplotlib.pyplot as plt
 
 # Constant Variables
 DEBUG = True
 WINDOW_WIDTH = 700
 WINDOW_HEIGHT = 700
-FPS = 10
+FPS = 60
 PLAYER_SIZE = 20
 PLAYER_SPEED = 5            #higher means faster (PLAYER_STEPS % PLAYER_SPEED shoud be 0)
 PLAYER_STEPS = 200             #lower means faster
@@ -25,20 +26,31 @@ BACKGROUND_COLOR = (0,0,0)
 PLAYER_COLOR = (255,0,0)
 WALL_COLOR = (0,0,255)
 
-# Audio Vars
+# Audio Stuff
+ONSETS = []
 AUDIO_FILE_PATH = input("- - - Audio path: audio/")
 if AUDIO_FILE_PATH == "":
     AUDIO_FILE_PATH = "1.wav"
-print("- - - Loading ...")
-ONSETS = []
+BEATMAP = input("- - - Beatmap Path (Enter for none): ")
 
-# Audio Processing
-waveform, samplerate = librosa.load('audio/' + AUDIO_FILE_PATH)
+if BEATMAP == "":
+    print("- - - Compute Beatmap ...")
+    waveform, samplerate = librosa.load('audio/' + AUDIO_FILE_PATH)
+    onset_frames = librosa.onset.onset_detect(y=waveform, sr=samplerate, wait=1, pre_avg=1, post_avg=1, pre_max=1, post_max=1)
+    onset_times = librosa.frames_to_time(onset_frames)
+    ONSETS = onset_times
+    # Write Onsets to Beatmap
+    file_name_no_extension, _ = os.path.splitext(AUDIO_FILE_PATH)
+    output_name = 'beatmaps/' + file_name_no_extension + '.beatmap.txt'
+    with open(output_name, 'wt') as f:
+        f.write('\n'.join(['%.4f' % onset_time for onset_time in onset_times]))
+else:
+    print("- - - Using Beatmap: " + BEATMAP)
+    with open('beatmaps/' + BEATMAP) as file:
+        for line in file:
+            ONSETS.append(float(line))
+    print(ONSETS)
 
-onset_frames = librosa.onset.onset_detect(y=waveform, sr=samplerate, wait=1, pre_avg=1, post_avg=1, pre_max=1, post_max=1)
-onset_times = librosa.frames_to_time(onset_frames)
-ONSETS = onset_times
-#ssfs
 
 def playOnsets(onsets):
     last = 0
@@ -46,8 +58,6 @@ def playOnsets(onsets):
         time.sleep(float(onset - last))
         last = float(onset)
         print("bam")
-
-playOnsets(ONSETS)
 
 
 
@@ -214,7 +224,18 @@ class Wall():
 
 
 
+# Sound - - - - - - - - - - - - - - - - - - - - - - - -
+pygame.mixer.music.load('audio/' + AUDIO_FILE_PATH)
+def playMusic():
+    pygame.mixer.music.play(1)
+    # time_since_start (every frame += time.deltaTime)
+    # current_onset (int that represents the position of the current onset)
+    # if time_since_start >= ONSETS[current_onset]:
+    #       current_onset += 1
+    #       set wall color to random color
+# Sound End - - - - - - - - - - - - - - - - - - - - - - 
 
+# Game Objects - - - - - - - - - - - - - - - - - - - - -
 player = Player(PLAYER_SIZE, PLAYER_START_POSITION, PLAYER_START_DIRECTION, PLAYER_SPEED)
 
 # wall = wall((width, height), (xPos, yPos), orientation) <- 0 standing, 1 laying
@@ -223,10 +244,15 @@ wall2 = Wall((50, 700), (650, 0), 0)
 wall3 = Wall((700, 50), (0, 0), 1)
 wall4 = Wall((700, 50), (0, 650), 1)
 Walls = [wall1, wall2, wall3, wall4]
+# Game Objects End - - - - - - - - - - - - - - - - - - -
 
-running = False
 
-counter = 0
+running = True
+gamestart = False
+
+time_since_start = 0
+current_onset = 0
+getTicksLastFrame = 0
 while running == True:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -234,19 +260,35 @@ while running == True:
     
     # redraw
     screen.fill(BACKGROUND_COLOR)
-    player.draw(Walls)
 
     # game Logic
-    #if counter % FPS == 0:
-    #    player.updateAngle(random.choice(range(0, 360)))
+    keys=pygame.key.get_pressed()
+    if keys[pygame.K_w]:
+        gamestart = True
+        time_since_start = 0
+        playMusic()
+
+    if gamestart:
+        player.draw(Walls)
+        time_since_start_seconds = float(time_since_start / 1000)
+        print(time_since_start_seconds)
+        if current_onset <= len(ONSETS) - 1:
+            if time_since_start_seconds >= ONSETS[current_onset]:
+                print(" - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -")
+                WALL_COLOR = (random.choice(range(0, 255)), random.choice(range(0, 255)), random.choice(range(0, 255)))
+                current_onset += 1
 
     # refresh
     pygame.display.update()
 
     # set fps
     pygame.time.Clock().tick(FPS)
-
-    counter += 1
+    t = pygame.time.get_ticks()
+    # deltaTime in seconds.
+    deltaTime = (t - getTicksLastFrame)
+    getTicksLastFrame = t
+    #time_since_start = pygame.time.get_ticks()
+    time_since_start += deltaTime
 
 pygame.quit()
 
