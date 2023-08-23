@@ -73,7 +73,7 @@ screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_WIDTH))
 def debugDraw(target, pos):
     # draw grid
     gridgapsize = PLAYER_SIZE
-    linecolor = (50, 50, 50)
+    linecolor = (255, 255, 255)
     for i in range(WINDOW_WIDTH):
         if i % gridgapsize == 0:
             pygame.draw.line(screen, linecolor, (i, 0), (i, WINDOW_HEIGHT))
@@ -271,11 +271,10 @@ while running == True:
     if gamestart:
         player.draw(Walls)
         time_since_start_seconds = float(time_since_start / 1000)
-        print(time_since_start_seconds)
         if current_onset <= len(ONSETS) - 1:
             if time_since_start_seconds >= ONSETS[current_onset]:
-                print(" - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -")
                 WALL_COLOR = (random.choice(range(0, 255)), random.choice(range(0, 255)), random.choice(range(0, 255)))
+                BACKGROUND_COLOR = (random.choice(range(0, 50)), random.choice(range(0, 50)), random.choice(range(0, 50)))
                 current_onset += 1
 
     # refresh
