@@ -3,7 +3,6 @@ import random
 import math
 import librosa
 import time
-import playsound
 import os
 #import librosa.display
 #import matplotlib.pyplot as plt
