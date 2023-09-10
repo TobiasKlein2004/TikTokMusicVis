@@ -13,15 +13,19 @@ WINDOW_WIDTH = 700
 WINDOW_HEIGHT = 700
 FPS = 60
 PLAYER_SIZE = 20
-PLAYER_SPEED = 5            #higher means faster (PLAYER_STEPS % PLAYER_SPEED shoud be 0)
+X_SPEED = 3
+PLAYER_SPEED = 1            #higher means faster (PLAYER_STEPS % PLAYER_SPEED shoud be 0)
 PLAYER_STEPS = 200             #lower means faster
 PLAYER_START_DIRECTION = 30
 PLAYER_START_POSITION = (0, 0)
 PATH_PROJECTION_LENGHT = 700
 ANGLE_NOISE = 5
 
+WORLD_OFFSET = (0, 0)
+WALL_SIZE = (40, 10)
+
 # colors
-BACKGROUND_COLOR = (0,0,0)
+BACKGROUND_COLOR = (0,0,25)
 PLAYER_COLOR = (255,0,0)
 WALL_COLOR = (0,0,255)
 
@@ -30,7 +34,16 @@ ONSETS = []
 AUDIO_FILE_PATH = input("- - - Audio path: audio/")
 if AUDIO_FILE_PATH == "":
     AUDIO_FILE_PATH = "1.wav"
-BEATMAP = input("- - - Beatmap Path (Enter for none): ")
+MOVEMENT_DATA = input("- - - Use precomputed WorldData (Yes or Enter for No): ")
+usingBeatmap = True
+BEATMAP = ""
+if MOVEMENT_DATA == "":
+    BEATMAP = input("- - - Beatmap Path (Enter for none): ")
+if MOVEMENT_DATA != "":
+    usingBeatmap = False
+DURATION = librosa.get_duration(path='audio/'+AUDIO_FILE_PATH)
+
+
 
 if BEATMAP == "":
     print("- - - Compute Beatmap ...")
@@ -51,15 +64,6 @@ else:
     print(ONSETS)
 
 
-def playOnsets(onsets):
-    last = 0
-    for onset in onsets:
-        time.sleep(float(onset - last))
-        last = float(onset)
-        print("bam")
-
-
-
 
 
 pygame.init()
@@ -72,7 +76,7 @@ screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_WIDTH))
 def debugDraw(target, pos):
     # draw grid
     gridgapsize = PLAYER_SIZE
-    linecolor = (255, 255, 255)
+    linecolor = (100, 100, 100)
     for i in range(WINDOW_WIDTH):
         if i % gridgapsize == 0:
             pygame.draw.line(screen, linecolor, (i, 0), (i, WINDOW_HEIGHT))
@@ -105,8 +109,14 @@ class Player():
     def drawPlayerBox(self, pixels):
         for pixel in pixels:
             pygame.draw.rect(screen, (random.choice(range(0, 255)), random.choice(range(0, 255)), random.choice(range(0, 255))), pygame.Rect(pixel[0], pixel[1], 1, 1))
+
+    def getStepSize(self):
+        return self.StepSize
     
-    def draw(self, walls):
+    def getPosition(self):
+        return (self.x, self.y)
+    
+    def draw(self, walls, trackers):
         #print("X Target: " + str(self.targetX) + "  |  Y Target: " + str(self.targetY))
         #print("X Distance: " + str(self.dX) + "  |  Y Distance: " + str(self.dY))
         if (round(self.x), round(self.y)) != (self.targetX, self.targetY):
@@ -114,12 +124,17 @@ class Player():
             self.y += self.StepSize[1] * PLAYER_SPEED
 
         pgx, pgy = toPygameCoordinates((self.x, self.y)) #PyGameX and PyGameY (convert center based coords to topleft based coords)
+        #pgx, pgy = toPygameCoordinates((0, 0)) #PyGameX and PyGameY (convert center based coords to topleft based coords)
+
+        global WORLD_OFFSET
+        #WORLD_OFFSET = (self.x*-1, self.y*-1)
+        WORLD_OFFSET = (0, 0)
 
         self.collisionCheck(walls, round(pgx), round(pgy))
 
         playerPixels = []
-        for i in range(round(pgy) - round(self.size / 2), round(pgy) + round(self.size / 2)):
-            for j in range(round(pgx) - round(self.size / 2), round(pgx) + round(self.size / 2)):
+        for i in range(round(toPygameCoordinates((self.x, self.y))[1]) - round(self.size / 2), round(toPygameCoordinates((self.x, self.y))[1]) + round(self.size / 2)):
+            for j in range(round(toPygameCoordinates((self.x, self.y))[0]) - round(self.size / 2), round(toPygameCoordinates((self.x, self.y))[0]) + round(self.size / 2)):
                 playerPixels.append((j,i))
 
         # Actual drawing
@@ -128,6 +143,8 @@ class Player():
         self.drawPlayerBox(playerPixels)
         for wall in walls:
             wall.draw()
+        for line in trackers:
+            line.draw()
         #pygame.draw.line(screen, (255, 255, 255), (pgx, pgy), (pgx + self.targetX, pgy + self.targetY))
     
     def angleToCoordinats(self, angle):
@@ -138,16 +155,21 @@ class Player():
 
     def updateAngle(self, angle):
         if ANGLE_NOISE != 0:
-            self.direction = angle + random.choice(range(-ANGLE_NOISE, ANGLE_NOISE))
+            d = angle + random.choice(range(-ANGLE_NOISE, ANGLE_NOISE))
+            if d > 359:
+                d = d % 360
+            self.direction = d
         else:
+            if angle > 359:
+                angle = angle % 360
             self.direction = angle
         self.targetX, self.targetY = round(self.angleToCoordinats(self.direction)[0] * PATH_PROJECTION_LENGHT), round(self.angleToCoordinats(self.direction)[1] * PATH_PROJECTION_LENGHT)
         self.dX, self.dY = self.calcDistance((self.x, self.y), (self.targetX, self.targetY))
         self.StepSize = (self.dX / PLAYER_STEPS, self.dY / PLAYER_STEPS)
-    
+
     # Physics: Collision
     def collisionCheck(self, walls, x, y):
-        colOffset = self.size // 2
+        colOffset = self.size // 2 + 5
         col1, col2, col3, col4 = (x-colOffset, y), (x+colOffset, y), (x, y-colOffset), (x, y+colOffset)
         colliders = {
                         "left": col1, 
@@ -158,7 +180,7 @@ class Player():
         for wall in walls:
             for col in colliders:
                 if colliders[col] in wall.getPixels():
-                    print("Collision: " + col)
+                    #print("Collision: " + col)
                     match col:
                         case "bottom":
                             if self.direction < 180:
@@ -167,8 +189,9 @@ class Player():
                                 outgoingAngle = 360 - (self.direction - 180)
                             else:
                                 outgoingAngle = 0
-                            print("IN: " + str(self.direction) + " - OUT: " + str(outgoingAngle))
-                            self.updateAngle(outgoingAngle)
+                            #print("IN: " + str(self.direction) + " - OUT: " + str(outgoingAngle))
+                            if MOVEMENT_DATA == "":
+                                self.updateAngle(outgoingAngle)
                         case "top":
                             if 0 < self.direction < 90:
                                 outgoingAngle = 180 - self.direction
@@ -176,8 +199,9 @@ class Player():
                                 outgoingAngle = 270 - (self.direction - 270)
                             else:
                                 outgoingAngle = 180
-                            print("IN: " + str(self.direction) + " - OUT: " + str(outgoingAngle))
-                            self.updateAngle(outgoingAngle)
+                            #print("IN: " + str(self.direction) + " - OUT: " + str(outgoingAngle))
+                            if MOVEMENT_DATA == "":
+                                self.updateAngle(outgoingAngle)
                         case "left":
                             if self.direction < 270:
                                 outgoingAngle = 180 - (self.direction - 180)
@@ -185,8 +209,9 @@ class Player():
                                 outgoingAngle = 360 - self.direction
                             else:
                                 outgoingAngle = 90
-                            print("IN: " + str(self.direction) + " - OUT: " + str(outgoingAngle))
-                            self.updateAngle(outgoingAngle)
+                            #print("IN: " + str(self.direction) + " - OUT: " + str(outgoingAngle))
+                            if MOVEMENT_DATA == "":
+                                self.updateAngle(outgoingAngle)
                         case "right":
                             if self.direction > 90:
                                 outgoingAngle = 180 + (180 - self.direction)
@@ -194,17 +219,19 @@ class Player():
                                 outgoingAngle = 360 - self.direction
                             else:
                                 outgoingAngle = 270
-                            print("IN: " + str(self.direction) + " - OUT: " + str(outgoingAngle))
-                            self.updateAngle(outgoingAngle)
+                            #print("IN: " + str(self.direction) + " - OUT: " + str(outgoingAngle))
+                            if MOVEMENT_DATA == "":
+                                self.updateAngle(outgoingAngle)
 
+# wall = wall((width, height), (xPos, yPos), orientation) <- 0 standing, 1 laying
 class Wall():
     def __init__(self, size, pos, direction):
         self.sizeX, self.sizeY = size
-        self.x, self.y = pos
+        self.x, self.y = toPygameCoordinates(pos)
         self.direction = direction
     
     def draw(self):
-        pygame.draw.rect(screen, WALL_COLOR, pygame.Rect(self.x, self.y, self.sizeX, self.sizeY))
+        pygame.draw.rect(screen, WALL_COLOR, pygame.Rect(self.x + WORLD_OFFSET[0], self.y + WORLD_OFFSET[1], self.sizeX, self.sizeY))
     
     def getPixels(self):
         res = []
@@ -218,7 +245,18 @@ class Wall():
 
     def info(self):
         return [(self.x, self.y), (self.sizeX, self.sizeY), self.direction, self.getPixels()]
-    
+Walls = []
+
+class TrackerLine():
+    def __init__(self, pos):
+        self.x, self.y = pos
+
+    def draw(self):
+        x, y = toPygameCoordinates((self.x, self.y))
+        pygame.draw.line(screen, (255, 255, 255), (x - 25, y), (x + 25, y))
+
+    def getPos(self):
+        return (self.x, self.y)
 
 
 
@@ -227,22 +265,94 @@ class Wall():
 pygame.mixer.music.load('audio/' + AUDIO_FILE_PATH)
 def playMusic():
     pygame.mixer.music.play(1)
-    # time_since_start (every frame += time.deltaTime)
-    # current_onset (int that represents the position of the current onset)
-    # if time_since_start >= ONSETS[current_onset]:
-    #       current_onset += 1
-    #       set wall color to random color
 # Sound End - - - - - - - - - - - - - - - - - - - - - - 
+
+# Onset Positional Tracking - - - - - - - - - - - - - -
+def calcOnsetPos(nextOnset, currentTime, player):
+    stepSize = player.getStepSize()                    # aka Movement per Frame
+    playerPos = player.getPosition()
+    timeLeft = (nextOnset*1000) - currentTime
+    framesLeft = int(round(timeLeft) / 1000 * FPS)
+    # place tracker at playerPos + stepsize*framesLeft
+    x = playerPos[0] + stepSize[0]*framesLeft
+    y = playerPos[1] + stepSize[1]*framesLeft
+    global TrackerLines
+    tracker = TrackerLine((x, y))
+    TrackerLines.append(tracker)
+# Onset Positional Tracking End - - - - - - - - - - - -
+
+def calcWallType(d, wcpx, wcpy):
+    res = []
+    wsx, wsy = WALL_SIZE
+    if d == 0:
+        # h(-) top
+        wall = Wall((wsx, wsy), (wcpx - wsx//2, wcpy - wsy), 1)
+        res.append(wall)
+    elif 1 <= d <= 89:
+        # h(-) top OR v(|) right
+        wall1 = Wall((wsx, wsy), (wcpx - wsx//2, wcpy - wsy), 1)
+        wall2 = Wall((wsy, wsx), (wcpx, wcpy - wsx//2), 0)
+        res.append(random.choice([wall1, wall2]))
+    elif d == 90:
+        # v(|) right
+        wall = Wall((wsy, wsx), (wcpx, wcpy - wsx//2), 0)
+        res.append(wall)
+    elif 91 <= d <= 179:
+        # h(-) below OR v(|) right
+        wall1 = Wall((wsx, wsy), (wcpx - wsx//2, wcpy), 1)
+        wall2 = Wall((wsy, wsx), (wcpx, wcpy - wsx//2), 0)
+        res.append(random.choice([wall1, wall2]))
+    elif d == 180:
+        # h(-) below
+        wall = Wall((wsx, wsy), (wcpx - wsx//2, wcpy), 1)
+        res.append(wall)
+    elif 181 <= d <= 269:
+        # h(-) below OR v(|) left
+        wall1 = Wall((wsx, wsy), (wcpx - wsx//2, wcpy), 1)
+        wall2 = Wall((wsy, wsx), (wcpx - wsy, wcpy - wsx//2), 0)
+        res.append(random.choice([wall1, wall2]))
+    elif d == 270:
+        # v(|) left
+        wall = Wall((wsy, wsx), (wcpx - wsy, wcpy - wsx//2), 0)
+        res.append(wall)
+    elif 271 <= d <= 359:
+        # h(-) top OR v(|) left
+        wall1 = Wall((wsx, wsy), (wcpx - wsx//2, wcpy - wsy), 1)
+        wall2 = Wall((wsy, wsx), (wcpx - wsy, wcpy - wsx//2), 0)
+        res.append(random.choice([wall1, wall2]))
+    
+    return res
+
+def loadWorld():
+    with open('movement/worldData.txt', 'r') as file:
+        lines = file.readlines()
+        for line in lines:
+            sizeX = int(line[1:line.find(',')])
+            sizeY = int(line[line.find(',')+1:line.find(')')])
+            line = line[line.find(')')+2:]
+            x = float(line[1:line.find(',')])
+            y = float(line[line.find(',')+1:line.find(')')])
+            line = line[line.find(')')+2:]
+            d = int(line)
+            global Walls
+            Walls.append(Wall((sizeX, sizeY), (x, y), d))
+if MOVEMENT_DATA != "":
+    loadWorld()
 
 # Game Objects - - - - - - - - - - - - - - - - - - - - -
 player = Player(PLAYER_SIZE, PLAYER_START_POSITION, PLAYER_START_DIRECTION, PLAYER_SPEED)
 
-# wall = wall((width, height), (xPos, yPos), orientation) <- 0 standing, 1 laying
-wall1 = Wall((50, 700), (0, 0), 0)
-wall2 = Wall((50, 700), (650, 0), 0)
-wall3 = Wall((700, 50), (0, 0), 1)
-wall4 = Wall((700, 50), (0, 650), 1)
-Walls = [wall1, wall2, wall3, wall4]
+
+TrackerLines = []
+if MOVEMENT_DATA != "":
+    # Load Trackerlines
+    with open('movement/movementData.txt', 'r') as file:
+        lines = file.readlines()
+        for line in lines:
+            #parse
+            x = float(line[1:line.find(',')])
+            y = float(line[line.find(',') + 2:line.find(')', 2)])
+            TrackerLines.append(TrackerLine((x, y)))
 # Game Objects End - - - - - - - - - - - - - - - - - - -
 
 
@@ -257,6 +367,9 @@ while running == True:
         if event.type == pygame.QUIT:
             running = False
     
+    if gamestart == True and time_since_start > DURATION*1000:
+        running = False
+    
     # redraw
     screen.fill(BACKGROUND_COLOR)
 
@@ -268,12 +381,31 @@ while running == True:
         playMusic()
 
     if gamestart:
-        player.draw(Walls)
+        #TODO update Player angle
+
+        player.draw(Walls, TrackerLines)
         time_since_start_seconds = float(time_since_start / 1000)
         if current_onset <= len(ONSETS) - 1:
+            print(player.getPosition())
             if time_since_start_seconds >= ONSETS[current_onset]:
+                if MOVEMENT_DATA == "":
+                    calcOnsetPos(ONSETS[current_onset], time_since_start, player)
+                    
+                    #spawn block at trackerPos
+                    wallColisionPoint = TrackerLines[-1].getPos()
+                    print(wallColisionPoint)
+                    wcpx, wcpy = wallColisionPoint[0], wallColisionPoint[1]
+                    # spawn wall at that point -> check angel of playler to get orientaion of wall
+                    Walls.append(calcWallType(player.direction, wcpx, wcpy)[0])
+
+                else:
+                    targetPos = TrackerLines[current_onset + 1].getPos()
+                    playerPos = player.getPosition()
+                    newAngle = math.atan2(targetPos[1]-playerPos[1], targetPos[0]-playerPos[0])*(180/math.pi)+90
+                    if newAngle < 0:
+                        newAngle = 360 + newAngle
+                    player.updateAngle(newAngle)
                 WALL_COLOR = (random.choice(range(0, 255)), random.choice(range(0, 255)), random.choice(range(0, 255)))
-                BACKGROUND_COLOR = (random.choice(range(0, 50)), random.choice(range(0, 50)), random.choice(range(0, 50)))
                 current_onset += 1
 
     # refresh
@@ -287,6 +419,20 @@ while running == True:
     getTicksLastFrame = t
     #time_since_start = pygame.time.get_ticks()
     time_since_start += deltaTime
+
+
+# Write Turnpositions/WallPositions to file
+with open('movement/movementData.txt', 'w') as file:
+    for tracker in TrackerLines:
+        file.write(str(tracker.getPos()) + '\n')
+
+# Write Wallpositions to file
+with open('movement/worldData.txt', 'w') as file:
+    for wall in Walls:
+        # (width, height), (xPos, yPos), orientation)
+        file.write('(' + str(wall.sizeX) + ',' + str(wall.sizeY) + '),(' + str(wall.x) + ',' + str(wall.y) + '),' + str(wall.direction) + '\n')
+
+
 
 pygame.quit()
 
